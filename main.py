@@ -130,6 +130,19 @@ def solver_restart():
     return {"message": "重启中"}
 
 
+@app.get("/api/solver/log")
+def solver_log(lines: int = 200):
+    lines = max(1, min(int(lines), 2000))
+    from services.solver_manager import _solver_log_path
+    log_path = _solver_log_path()
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            content_lines = f.readlines()
+        return {"path": log_path, "lines": lines, "content": "".join(content_lines[-lines:])}
+    except FileNotFoundError:
+        return {"path": log_path, "lines": lines, "content": ""}
+
+
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static_dir):
     app.mount("/assets", StaticFiles(directory=os.path.join(_static_dir, "assets")), name="assets")
