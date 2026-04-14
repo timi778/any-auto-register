@@ -8,7 +8,7 @@
 
 > Disclaimer: This project is for learning and research purposes only. It must not be used for any commercial purposes. All consequences arising from the use of this project are solely the responsibility of the user.
 
-Multi-platform automated account registration and management system, supporting plugin-based extensibility, Web UI management, batch registration, state synchronization, and automatic local Turnstile Solver launch.
+Multi-platform automated account registration and management system, supporting plugin-based extensibility, Web UI management, batch registration, state synchronization, and automatic local Turnstile Solver launch. 
 
 ## Table of Contents
 
