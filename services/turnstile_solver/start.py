@@ -28,6 +28,19 @@ def _prepare_camoufox_env(browser_type: str) -> None:
     if camoufox_dir.is_dir():
         _prepend_env_path("LD_LIBRARY_PATH", str(camoufox_dir))
 
+
+def _startup_timeout_seconds() -> int:
+    for key in ("SOLVER_HYPERCORN_STARTUP_TIMEOUT", "SOLVER_START_TIMEOUT", "SOLVER_STARTUP_TIMEOUT"):
+        raw = os.getenv(key, "").strip()
+        if not raw:
+            continue
+        try:
+            return max(5, int(raw))
+        except Exception:
+            continue
+    return 120
+
+
 if __name__ == "__main__":
     args = parse_args()
     _prepare_camoufox_env(args.browser_type)
@@ -42,4 +55,10 @@ if __name__ == "__main__":
         browser_name=args.browser,
         browser_version=args.version,
     )
-    app.run(host=args.host, port=int(args.port))
+    from hypercorn.asyncio import serve
+    from hypercorn.config import Config
+
+    config = Config()
+    config.bind = [f"{args.host}:{int(args.port)}"]
+    config.startup_timeout = _startup_timeout_seconds()
+    asyncio.run(serve(app, config))
