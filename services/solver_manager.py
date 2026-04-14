@@ -64,10 +64,23 @@ def _solver_log_path() -> str:
     return os.path.join(os.path.dirname(__file__), "turnstile_solver", "solver.log")
 
 
+def _tail_text_file(path: str, max_lines: int) -> str:
+    try:
+        if max_lines <= 0:
+            return ""
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        if len(lines) <= max_lines:
+            return "".join(lines)
+        return "".join(lines[-max_lines:])
+    except Exception:
+        return ""
+
+
+
 def _popen_kwargs() -> dict:
     if os.name == "nt":
         return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
-    return {"start_new_session": True}
 
 
 def _terminate_process(proc: subprocess.Popen) -> None:
@@ -159,6 +172,10 @@ def start():
                 return
             if _proc.poll() is not None:
                 print(f"[Solver] 启动失败，退出码={_proc.returncode}，日志: {log_path}")
+                tail = _tail_text_file(log_path, 120)
+                if tail:
+                    print("[Solver] solver.log 末尾内容：")
+                    print(tail)
                 _proc = None
                 if _log_file:
                     _log_file.close()
