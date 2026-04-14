@@ -107,6 +107,10 @@ class TurnstileAPIServer:
         if self.useragent:
             self.browser_args.append(f"--user-agent={self.useragent}")
 
+        self._init_task = None
+        self._init_error = ""
+        self._init_event = asyncio.Event()
+
         self._setup_routes()
 
     def display_welcome(self):
@@ -149,19 +153,28 @@ class TurnstileAPIServer:
         
 
     async def _startup(self) -> None:
-        """Initialize the browser and page pool on startup."""
+        if self._init_task is None:
+            self._init_task = asyncio.create_task(self._initialize())
+
+    async def _initialize(self) -> None:
         self.display_welcome()
         logger.info("Starting browser initialization")
         try:
             await init_db()
             await self._initialize_browser()
-            
-            # Запускаем периодическую очистку старых результатов
             asyncio.create_task(self._periodic_cleanup())
-            
+            self._init_error = ""
         except Exception as e:
+            self._init_error = str(e)
             logger.error(f"Failed to initialize browser: {str(e)}")
-            raise
+        finally:
+            self._init_event.set()
+
+    async def _ensure_initialized(self) -> None:
+        if not self._init_event.is_set():
+            await self._init_event.wait()
+        if self._init_error:
+            raise RuntimeError(self._init_error)
 
     async def _initialize_browser(self) -> None:
         """Initialize the browser and create the page pool."""
@@ -626,7 +639,25 @@ class TurnstileAPIServer:
         """Solve the Turnstile challenge."""
         proxy = None
 
-        index, browser, browser_config = await self.browser_pool.get()
+        try:
+            await self._ensure_initialized()
+        except Exception as e:
+            await save_result(task_id, "turnstile", {"value": "CAPTCHA_FAIL", "elapsed_time": 0, "error": str(e)})
+            return
+
+        pool_timeout_raw = os.getenv("SOLVER_POOL_WAIT_TIMEOUT", "").strip()
+        try:
+            pool_timeout_seconds = max(1, int(pool_timeout_raw)) if pool_timeout_raw else 300
+        except Exception:
+            pool_timeout_seconds = 300
+
+        try:
+            index, browser, browser_config = await asyncio.wait_for(
+                self.browser_pool.get(), timeout=pool_timeout_seconds
+            )
+        except Exception as e:
+            await save_result(task_id, "turnstile", {"value": "CAPTCHA_FAIL", "elapsed_time": 0, "error": str(e)})
+            return
         
         try:
             if hasattr(browser, 'is_connected') and not browser.is_connected():
