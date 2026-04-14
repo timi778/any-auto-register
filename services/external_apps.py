@@ -107,6 +107,20 @@ def _open_log(name: str):
     return f
 
 
+def _tail_text_file(path: Path, max_lines: int) -> str:
+    try:
+        if max_lines <= 0:
+            return ""
+        if not path.exists():
+            return ""
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines(True)
+        if len(lines) <= max_lines:
+            return "".join(lines)
+        return "".join(lines[-max_lines:])
+    except Exception:
+        return ""
+
+
 def _make_tree_writable(path: Path):
     if not path.exists():
         return
@@ -863,7 +877,11 @@ def start(name: str) -> dict[str, Any]:
                 return _status_one(name)
             proc = _PROCS.get(name)
             if proc and proc.poll() is not None:
-                _LAST_ERROR[name] = f"启动失败，退出码={proc.returncode}"
+                tail = _tail_text_file(_log_path(name), 120)
+                if tail:
+                    _LAST_ERROR[name] = f"启动失败，退出码={proc.returncode}\n\n{tail}"
+                else:
+                    _LAST_ERROR[name] = f"启动失败，退出码={proc.returncode}"
                 return _status_one(name)
         _LAST_ERROR[name] = "启动超时"
     else:

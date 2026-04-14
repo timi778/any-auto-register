@@ -70,6 +70,20 @@ def stop_service(name: str):
     return stop(name)
 
 
+@router.get("/services/{name}/log")
+def service_log(name: str, lines: int = 200):
+    lines = max(1, min(int(lines), 2000))
+    from services.external_apps import _log_path
+
+    log_path = _log_path(name)
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            content_lines = f.readlines()
+        return {"name": name, "path": str(log_path), "lines": lines, "content": "".join(content_lines[-lines:])}
+    except FileNotFoundError:
+        return {"name": name, "path": str(log_path), "lines": lines, "content": ""}
+
+
 @router.post("/backfill")
 def backfill_integrations(body: BackfillRequest):
     summary = {"total": 0, "success": 0, "failed": 0, "skipped": 0, "items": []}
