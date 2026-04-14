@@ -780,6 +780,19 @@ def _ensure_grok2api_runtime_config(repo: Path):
     config_file.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
 
 
+def _detect_grok2api_asgi_target(repo: Path) -> str:
+    candidates = [
+        ("main:app", repo / "main.py"),
+        ("app.main:app", repo / "app" / "main.py"),
+        ("src.main:app", repo / "src" / "main.py"),
+        ("grok2api.main:app", repo / "grok2api" / "main.py"),
+    ]
+    for target, module_file in candidates:
+        if module_file.exists():
+            return target
+    return "main:app"
+
+
 def _build_command(name: str) -> tuple[list[str], Path]:
     repo = _repo_path(name)
     if name == "cliproxyapi":
@@ -792,6 +805,7 @@ def _build_command(name: str) -> tuple[list[str], Path]:
 
     if name == "grok2api":
         _ensure_grok2api_runtime_config(repo)
+        target = _detect_grok2api_asgi_target(repo)
         conda = _conda_exe()
         if conda:
             env_name = _ensure_grok2api_conda_env(repo)
@@ -812,7 +826,7 @@ def _build_command(name: str) -> tuple[list[str], Path]:
                 "8011",
                 "--workers",
                 "1",
-                "main:app",
+                target,
             ], repo
 
         python_exe = _ensure_grok2api_uv_env(repo)
@@ -828,7 +842,7 @@ def _build_command(name: str) -> tuple[list[str], Path]:
             "8011",
             "--workers",
             "1",
-            "main:app",
+            target,
         ], repo
 
     if name == "kiro-manager":
