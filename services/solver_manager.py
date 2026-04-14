@@ -81,6 +81,7 @@ def _tail_text_file(path: str, max_lines: int) -> str:
 def _popen_kwargs() -> dict:
     if os.name == "nt":
         return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
 
 
 def _terminate_process(proc: subprocess.Popen) -> None:
